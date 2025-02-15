@@ -151,6 +151,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
         reply.code(200).header('Content-Type', 'text/html').send(html)
 
     } catch (error) {
+        console.error(error)
         reply.code(404).send({ error: 'File not found' })
     }
 })
