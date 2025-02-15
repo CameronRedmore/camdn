@@ -15,7 +15,7 @@ import sanitize from 'sanitize-filename'
 import sharp from 'sharp'
 import sqlite3 from 'sqlite3'
 
-const dbFile = path.join("data", 'database.db')
+const dbFile = path.join(process.cwd(), "data", 'database.db')
 const db = new sqlite3.Database(dbFile)
 
 const execAsync = promisify(exec)
