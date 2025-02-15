@@ -1,18 +1,22 @@
-import Fastify from 'fastify'
-import fastifyMultipart from '@fastify/multipart'
-import dotenv from 'dotenv'
-import fs from 'node:fs'
-import mime from 'mime-types'
-import path, { join } from 'node:path'
-import { createWriteStream } from 'node:fs'
-import { pipeline } from 'node:stream/promises'
-import sanitize from 'sanitize-filename'
-import fastifyStatic from '@fastify/static'
-
+// Node.js built-in modules
+import fs, { createWriteStream } from 'node:fs'
+import path from 'node:path'
 import { exec } from 'child_process'
 import { promisify } from 'node:util'
+import { pipeline } from 'node:stream/promises'
 
+// Third-party modules
+import dotenv from 'dotenv'
+import Fastify from 'fastify'
+import fastifyMultipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
+import mime from 'mime-types'
+import sanitize from 'sanitize-filename'
 import sharp from 'sharp'
+import sqlite3 from 'sqlite3'
+
+const dbFile = path.join("data", 'database.db')
+const db = new sqlite3.Database(dbFile)
 
 const execAsync = promisify(exec)
 
@@ -46,12 +50,21 @@ fastify.get('/music.jpg', async (request, reply) => {
     reply.header('Content-Type', 'image/jpeg').send(musicImage)
 });
 
-const assetSizeCache = new Map()
-
-//Find the width and height of a file either an image or video, and cache the result
+//Find the width and height of a file either an image or video, and cache the result in the db
 async function getAssetSize(filePath) {
-    if (assetSizeCache.has(filePath)) {
-        return assetSizeCache.get(filePath)
+    //Check if the asset size is already in the cache
+    const cachedSize = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM asset_size_cache WHERE path = ?', [filePath], (err, row) => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve(row)
+            }
+        })
+    })
+
+    if (cachedSize) {
+        return { width: cachedSize.width, height: cachedSize.height }
     }
 
     const mimeType = mime.lookup(filePath) || 'application/octet-stream'
@@ -67,7 +80,7 @@ async function getAssetSize(filePath) {
         } catch (error) {
             console.error(error)
         }
-    //Use sharp to get the width and height of an image file
+        //Use sharp to get the width and height of an image file
     } else if (mimeType.startsWith('image/')) {
         try {
             const metadata = await sharp(filePath).metadata()
@@ -77,7 +90,8 @@ async function getAssetSize(filePath) {
         }
     }
 
-    assetSizeCache.set(filePath, assetSize)
+    //Cache the result
+    db.run('INSERT INTO asset_size_cache (path, width, height) VALUES (?, ?, ?)', [filePath, assetSize.width, assetSize.height])
 
     return assetSize
 }
@@ -97,14 +111,14 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
     const filePath = path.join(uploadDir, date, filename)
 
     const joinedPath = path.join(date, filename)
-    
+
     console.log(filePath)
 
     try {
         //Check if the file exists, if not, return 404
         await fs.promises.access(filePath)
 
-        const {width, height} = await getAssetSize(filePath);
+        const { width, height } = await getAssetSize(filePath);
 
         const mimeType = mime.lookup(filename) || 'application/octet-stream'
         let fileContent = '';
@@ -157,6 +171,27 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
         reply.code(404).send({ error: 'File not found' })
     }
 })
+
+//Route which will redirect to the original URL
+fastify.get('/l/:shortId', async (request, reply) => {
+    const { shortId } = request.params
+
+    const url = await new Promise((resolve, reject) => {
+        db.get('SELECT url FROM short_urls WHERE short_id = ?', [shortId], (err, row) => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve(row)
+            }
+        })
+    })
+
+    if (url) {
+        reply.redirect(url.url)
+    } else {
+        reply.code(404).send({ error: 'URL not found' })
+    }
+});
 
 const sizeLimit = process.env.FILE_SIZE_LIMIT || 16; //Size limit in GB
 
@@ -220,9 +255,51 @@ fastify.put('/upload', {
     }
 })
 
+//Route which will shorten a URL
+fastify.put('/shorten', {
+    preHandler: async (request, reply) => {
+        const apiKey = request.headers.authorization
+        if (!apiKey || apiKey !== process.env.API_KEY) {
+            reply.code(401).send({ error: 'Unauthorized' })
+        }
+    }
+}, async (request, reply) => {
+    const { url } = request.body
+    if (!url) {
+        reply.code(400).send({ error: 'No URL provided' })
+        return
+    }
+
+    //Short URL should be base62, 8 characters long
+    const shortId = Math.random().toString(36).substring(2, 10)
+
+    //Insert the short URL into the database
+    db.run('INSERT INTO short_urls (short_id, url) VALUES (?, ?)', [shortId, url])
+
+    const host = process.env.HOST || ''
+    reply.code(200).send({ url: host.replace(/\/$/, '') + '/l/' + shortId })
+});
+
+const initDb = async () => {
+    //Create asset_size_cache table
+    await db.run(`CREATE TABLE IF NOT EXISTS asset_size_cache (
+        path TEXT PRIMARY KEY,
+        width INTEGER,
+        height INTEGER
+    )`);
+
+    //Create short_urls table
+    await db.run(`CREATE TABLE IF NOT EXISTS short_urls (
+        short_id TEXT PRIMARY KEY,
+        url TEXT
+    )`);
+}
+
 // Start server
 const start = async () => {
     try {
+        await initDb();
+
         await fastify.listen({ host: process.env.LISTEN_HOST || '0.0.0.0', port: process.env.LISTEN_PORT || 3000 })
     } catch (err) {
         fastify.log.error(err)

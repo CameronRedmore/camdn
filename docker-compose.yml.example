@@ -13,4 +13,5 @@ services:
       UPLOAD_DIR: /app/uploads    # Container path for file uploads
     volumes:
       - ./uploads:/app/uploads    # Binds the local "uploads" directory to UPLOAD_DIR
+      - ./data:/app/data          # Binds the local "data" directory to /app/data
     restart: unless-stopped
