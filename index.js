@@ -167,6 +167,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
             .replaceAll('{{ogTags}}', ogTags)
             .replaceAll('{{filename}}', filename)
             .replaceAll('{{joinedPath}}', joinedPath)
+            .replaceAll('{{siteName}}', process.env.SITE_NAME || 'CamDN')
 
         reply.code(200).header('Content-Type', 'text/html').send(html)
 

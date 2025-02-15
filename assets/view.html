@@ -2,16 +2,17 @@
 <html>
 
 <head>
-    <title>Viewing {{filename}}</title>
+    <title>{{siteName}} - {{filename}}</title>
     {{ogTags}}
 
     <link rel="stylesheet" href="/styles.css">
 </head>
 
 <body>
-    <h1>Viewing {{filename}}</h1>
-    <a download="{{filename}}" href="/f/{{joinedPath}}">Download File</a>
-    <hr />
+    <div class="info">
+        <div class="logo">{{siteName}}</div>
+        <span>{{filename}}</span> <a download="{{filename}}" href="/f/{{joinedPath}}">Download File</a>
+    </div>
     {{fileContent}}
 </body>
 

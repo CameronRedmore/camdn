@@ -1,10 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Turret+Road:wght@200;300;400;500;700;800&display=swap');
 
-html, body {
-    height: 100%;
+html {
     background: #0F2027;
     background: -webkit-linear-gradient(to bottom left, #2C5364, #203A43, #0F2027);
     background: linear-gradient(to bottom left, #2C5364, #203A43, #0F2027);
+
+    min-height: 100vh;
+
+    background-size: cover;
+}
+
+body {
     
     color: white;
 
@@ -13,14 +19,49 @@ html, body {
     text-align: center;
 }
 
-/* Make anchor tags look like buttons */
-a {
-    display: inline-block;
-    padding: 10px 20px;
-    margin: 10px 0;
-    background: #185c7a;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    border: 2px solid white;
+img, video {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.info {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+
+    background: rgba(0,0,0,0.5);
+
+    width: 100%;
+
+    & > a,span {
+        display: inline-block;
+        padding: 10px 20px;
+        margin: 10px 0;
+        background: #5421a6;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        border: 2px solid white;
+    }
+    & > a {
+        margin-left: 10px;
+
+        background: #0f3a4a;
+
+        &:hover {
+            background: #0d5d7a;
+        }
+    }
+
+    & > .logo {
+        position: absolute;
+        left: 9px;
+        bottom: 9px;
+
+        font-size: 2.5rem;
+
+        font-family: 'Turret Road', serif;
+
+        font-weight: bold;
+    }
 }
