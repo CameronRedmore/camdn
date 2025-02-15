@@ -20,6 +20,16 @@ const db = new sqlite3.Database(dbFile)
 
 const execAsync = promisify(exec)
 
+const {
+    UPLOAD_DIR,
+    FILE_SIZE_LIMIT,
+    API_KEY,
+    HOST,
+    SITE_NAME,
+    LISTEN_HOST,
+    LISTEN_PORT
+} = process.env
+
 // Load environment variables
 dotenv.config()
 
@@ -27,7 +37,7 @@ const fastify = Fastify({
     logger: true
 })
 
-let uploadDir = process.env.UPLOAD_DIR || 'uploads'
+let uploadDir = UPLOAD_DIR || 'uploads'
 
 //Convert to absolute path
 if (!path.isAbsolute(uploadDir)) {
@@ -107,7 +117,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
     filename = sanitize(filename)
     date = sanitize(date)
 
-    const uploadDir = process.env.UPLOAD_DIR || 'uploads'
+    const uploadDir = UPLOAD_DIR || 'uploads'
     const filePath = path.join(uploadDir, date, filename)
 
     const joinedPath = path.join(date, filename)
@@ -122,8 +132,8 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
 
         const mimeType = mime.lookup(filename) || 'application/octet-stream'
         let fileContent = '';
-        let ogTags = `<meta property="og:title" content="${process.env.SITE_NAME || 'CamDN'} - ${filename}" />
-                      <meta property="og:url" content="${process.env.HOST || ''}/s/${date}/${filename}" />\n`;
+        let ogTags = `<meta property="og:title" content="${SITE_NAME || 'CamDN'} - ${filename}" />
+                      <meta property="og:url" content="${HOST || ''}/s/${date}/${filename}" />\n`;
 
         if (mimeType.startsWith('image/')) {
             //If the user agent is DiscordBot, return the image directly
@@ -167,7 +177,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
             .replaceAll('{{ogTags}}', ogTags)
             .replaceAll('{{filename}}', filename)
             .replaceAll('{{joinedPath}}', joinedPath)
-            .replaceAll('{{siteName}}', process.env.SITE_NAME || 'CamDN')
+            .replaceAll('{{siteName}}', SITE_NAME || 'CamDN')
 
         reply.code(200).header('Content-Type', 'text/html').send(html)
 
@@ -198,7 +208,7 @@ fastify.get('/l/:shortId', async (request, reply) => {
     }
 });
 
-const sizeLimit = process.env.FILE_SIZE_LIMIT || 16; //Size limit in GB
+const sizeLimit = FILE_SIZE_LIMIT || 16; //Size limit in GB
 
 // Register multipart support
 fastify.register(fastifyMultipart, {
@@ -212,7 +222,7 @@ fastify.register(fastifyMultipart, {
 fastify.put('/upload', {
     preHandler: async (request, reply) => {
         const apiKey = request.headers.authorization
-        if (!apiKey || apiKey !== process.env.API_KEY) {
+        if (!apiKey || apiKey !== API_KEY) {
             reply.code(401).send({ error: 'Unauthorized' })
         }
     }
@@ -224,7 +234,7 @@ fastify.put('/upload', {
         return
     }
 
-    const uploadDir = process.env.UPLOAD_DIR || 'uploads'
+    const uploadDir = UPLOAD_DIR || 'uploads'
     const date = new Date()
     const dateFolder = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     const fileName = data.filename
@@ -239,7 +249,7 @@ fastify.put('/upload', {
             data.file,
             createWriteStream(filePath)
         )
-        const host = process.env.HOST || ''
+        const host = HOST || ''
         reply.code(200).send({
             message: 'File uploaded successfully',
             fileName: host.replace(/\/$/, '') + '/s/' + path.join(dateFolder, fileName)
@@ -264,7 +274,7 @@ fastify.put('/upload', {
 fastify.put('/shorten', {
     preHandler: async (request, reply) => {
         const apiKey = request.headers.authorization
-        if (!apiKey || apiKey !== process.env.API_KEY) {
+        if (!apiKey || apiKey !== API_KEY) {
             reply.code(401).send({ error: 'Unauthorized' })
         }
     }
@@ -281,7 +291,7 @@ fastify.put('/shorten', {
     //Insert the short URL into the database
     db.run('INSERT INTO short_urls (short_id, url) VALUES (?, ?)', [shortId, url])
 
-    const host = process.env.HOST || ''
+    const host = HOST || ''
     reply.code(200).send({ url: host.replace(/\/$/, '') + '/l/' + shortId })
 });
 
@@ -305,7 +315,7 @@ const start = async () => {
     try {
         await initDb();
 
-        await fastify.listen({ host: process.env.LISTEN_HOST || '0.0.0.0', port: process.env.LISTEN_PORT || 3000 })
+        await fastify.listen({ host: LISTEN_HOST || '0.0.0.0', port: LISTEN_PORT || 3000 })
     } catch (err) {
         fastify.log.error(err)
         process.exit(1)
