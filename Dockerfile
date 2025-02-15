@@ -2,6 +2,8 @@ FROM node:alpine
 
 WORKDIR /app
 
+RUN apk add ffmpeg
+
 RUN npm i -g pnpm
 
 COPY . .

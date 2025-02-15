@@ -30,13 +30,62 @@ fastify.register(fastifyStatic, {
 
 // Handle CSS file, by sending `styles.css` file from the current directory
 fastify.get('/styles.css', async (request, reply) => {
-    const cssContent = await fs.promises.readFile('styles.css', 'utf8')
+    const cssContent = await fs.promises.readFile('assets/styles.css', 'utf8')
     reply.header('Content-Type', 'text/css').send(cssContent)
 });
+
+fastify.get('/music.jpg', async (request, reply) => {
+    const musicImage = await fs.promises.readFile('assets/music.jpg')
+    reply.header('Content-Type', 'image/jpeg').send(musicImage)
+});
+
+const assetSizeCache = new Map()
+
+//Find the width and height of a file either an image or video, and cache the result
+async function getAssetSize(filePath) {
+    if (assetSizeCache.has(filePath)) {
+        return assetSizeCache.get(filePath)
+    }
+
+    const mimeType = mime.lookup(filePath) || 'application/octet-stream'
+
+    let assetSize = { width: 0, height: 0 }
+
+    //Use ffprobe to get the width and height of a video file
+    if (mimeType.startsWith('video/')) {
+        const { exec } = require('child_process')
+        const { promisify } = require('util')
+        const execAsync = promisify(exec)
+
+        try {
+            const { stdout } = await execAsync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${filePath}`)
+            const [width, height] = stdout.trim().split('x').map(Number)
+            assetSize = { width, height }
+        } catch (error) {
+            console.error(error)
+        }
+    //Use sharp to get the width and height of an image file
+    } else if (mimeType.startsWith('image/')) {
+        const sharp = require('sharp')
+        try {
+            const metadata = await sharp(filePath).metadata()
+            assetSize = { width: metadata.width, height: metadata.height }
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    assetSizeCache.set(filePath, assetSize)
+
+    return assetSize
+}
 
 // Serve HTML page with embedded file (public)
 fastify.get('/s/:date/:filename', async (request, reply) => {
     let { filename, date } = request.params
+
+    //Log the user agent
+    console.log(request.headers['user-agent'])
 
     // Sanitize filename & date
     filename = sanitize(filename)
@@ -53,21 +102,36 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
         //Check if the file exists, if not, return 404
         await fs.promises.access(filePath)
 
+        const {width, height} = await getAssetSize(filePath);
+
         const mimeType = mime.lookup(filename) || 'application/octet-stream'
         let fileContent = '';
-        let ogTags = '';
+        let ogTags = `<meta property="og:title" content="${process.env.SITE_NAME || 'CamDN'} - ${filename}" />
+                      <meta property="og:url" content="${process.env.HOST || ''}/s/${date}/${filename}" />\n`;
 
         if (mimeType.startsWith('image/')) {
-            fileContent = `<img src="/f/${joinedPath}" alt="${filename}" />`
-            ogTags = `<meta property="og:image" content="/f/${joinedPath}" />`
+            fileContent = `<img src="/f/${joinedPath}" alt="${filename}" width="${width}" height="${height} />`
+            ogTags += `<meta property="og:image" content="/f/${joinedPath}" />
+                       <meta property="og:image:type" content="${mimeType}" />
+                       <meta property="og:image:width" content="${width}" />
+                       <meta property="og:image:height" content="${height}" />
+                       <meta property="og:type" content="website" />
+                       `
         } else if (mimeType.startsWith('video/')) {
-            fileContent = `<video controls><source src="/f/${joinedPath}" type="${mimeType}"></video>`
-            ogTags = `<meta property="og:video" content="/f/${joinedPath}" />
-                      <meta property="og:video:type" content="${mimeType}" />`
+            fileContent = `<video controls width="${width}" height="${height}><source src="/f/${joinedPath}" type="${mimeType}"></video>`
+            ogTags += `<meta property="og:video" content="/f/${joinedPath}" />
+                       <meta property="og:video:type" content="${mimeType}" />
+                       <meta property="og:video:width" content="${width}" />
+                       <meta property="og:video:height" content="${height}" />
+                       <meta property="og:image" content="/f/${joinedPath}.thumb.jpg" />
+                       <meta property="og:type" content="video.other" />
+                       `
         } else if (mimeType.startsWith('audio/')) {
             fileContent = `<audio controls><source src="/f/${joinedPath}" type="${mimeType}"></audio>`
-            ogTags = `<meta property="og:audio" content="/f/${joinedPath}" />
-                      <meta property="og:audio:type" content="${mimeType}" />`
+            ogTags += `<meta property="og:audio" content="/f/${joinedPath}" />
+                       <meta property="og:audio:type" content="${mimeType}" />
+                       <meta property="og:image" content="/music.jpg" />
+                       <meta property="og:type" content="music.song" />`
         } else if (mimeType.startsWith('text/')) {
             const fileData = await fs.promises.readFile(filePath, 'utf8');
             fileContent = `<pre>${fileData}</pre>`
@@ -75,7 +139,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
             fileContent = `<a href="/f/$${joinedPath}">Download File</a>`
         }
 
-        const htmlContent = await fs.promises.readFile('view.html', 'utf8');
+        const htmlContent = await fs.promises.readFile('assets/view.html', 'utf8');
 
         //Replace placeholders with actual content
         const html = htmlContent
@@ -137,6 +201,21 @@ fastify.put('/upload', {
             message: 'File uploaded successfully',
             fileName: host.replace(/\/$/, '') + '/s/' + path.join(dateFolder, fileName)
         })
+
+        //If the file is a video, generate a thumbnail
+        const mimeType = mime.lookup(fileName) || 'application/octet-stream'
+        if (mimeType.startsWith('video/')) {
+            const { exec } = require('child_process')
+            const { promisify } = require('util')
+            const execAsync = promisify(exec)
+
+            const thumbnailPath = path.join(fullUploadDir, fileName + '.thumb.jpg')
+            try {
+                await execAsync(`ffmpeg -i ${filePath} -ss 00:00:01 -vframes 1 ${thumbnailPath}`)
+            } catch (error) {
+                console.error(error)
+            }
+        }
     } catch (err) {
         reply.code(500).send({ error: 'Error uploading file' })
     }
