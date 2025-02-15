@@ -126,6 +126,10 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
                       <meta property="og:url" content="${process.env.HOST || ''}/s/${date}/${filename}" />\n`;
 
         if (mimeType.startsWith('image/')) {
+            //If the user agent is DiscordBot, return the image directly
+            if (request.headers['user-agent'].includes('Discordbot')) {
+                return reply.redirect(`/f/${joinedPath}`);
+            }
             fileContent = `<img src="/f/${joinedPath}" alt="${filename}" width="${width}" height="${height}" />`
             ogTags += `<meta property="og:image" content="/f/${joinedPath}" />
                        <meta property="og:image:type" content="${mimeType}" />
