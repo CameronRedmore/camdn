@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+html, body {
+    height: 100%;
+    background: #0F2027;
+    background: -webkit-linear-gradient(to bottom left, #2C5364, #203A43, #0F2027);
+    background: linear-gradient(to bottom left, #2C5364, #203A43, #0F2027);
+    
+    color: white;
+
+    font-family: 'Monsterrat', sans-serif;
+
+    text-align: center;
+}
+
+/* Make anchor tags look like buttons */
+a {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 10px 0;
+    background: #185c7a;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    border: 2px solid white;
+}

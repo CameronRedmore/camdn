@@ -1,0 +1,16 @@
+services:
+  camdn:
+    image: camdn
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: camdn
+    ports:
+      - "172.18.0.1:3000:3000"
+    environment:
+      API_KEY: ${API_KEY}         # Set this in an .env file or your environment
+      HOST: ${HOST}               # Set this in an .env file or your environment
+      UPLOAD_DIR: /app/uploads    # Container path for file uploads
+    volumes:
+      - ./uploads:/app/uploads    # Binds the local "uploads" directory to UPLOAD_DIR
+    restart: unless-stopped
