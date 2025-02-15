@@ -9,6 +9,13 @@ import { pipeline } from 'node:stream/promises'
 import sanitize from 'sanitize-filename'
 import fastifyStatic from '@fastify/static'
 
+import { exec } from 'child_process'
+import { promisify } from 'node:util'
+
+import sharp from 'sharp'
+
+const execAsync = promisify(exec)
+
 // Load environment variables
 dotenv.config()
 
@@ -53,10 +60,6 @@ async function getAssetSize(filePath) {
 
     //Use ffprobe to get the width and height of a video file
     if (mimeType.startsWith('video/')) {
-        const { exec } = require('child_process')
-        const { promisify } = require('util')
-        const execAsync = promisify(exec)
-
         try {
             const { stdout } = await execAsync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${filePath}`)
             const [width, height] = stdout.trim().split('x').map(Number)
@@ -66,7 +69,6 @@ async function getAssetSize(filePath) {
         }
     //Use sharp to get the width and height of an image file
     } else if (mimeType.startsWith('image/')) {
-        const sharp = require('sharp')
         try {
             const metadata = await sharp(filePath).metadata()
             assetSize = { width: metadata.width, height: metadata.height }
@@ -206,10 +208,6 @@ fastify.put('/upload', {
         //If the file is a video, generate a thumbnail
         const mimeType = mime.lookup(fileName) || 'application/octet-stream'
         if (mimeType.startsWith('video/')) {
-            const { exec } = require('child_process')
-            const { promisify } = require('util')
-            const execAsync = promisify(exec)
-
             const thumbnailPath = path.join(fullUploadDir, fileName + '.thumb.jpg')
             try {
                 await execAsync(`ffmpeg -i ${filePath} -ss 00:00:01 -vframes 1 ${thumbnailPath}`)
