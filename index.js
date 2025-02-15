@@ -112,7 +112,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
                       <meta property="og:url" content="${process.env.HOST || ''}/s/${date}/${filename}" />\n`;
 
         if (mimeType.startsWith('image/')) {
-            fileContent = `<img src="/f/${joinedPath}" alt="${filename}" width="${width}" height="${height} />`
+            fileContent = `<img src="/f/${joinedPath}" alt="${filename}" width="${width}" height="${height}" />`
             ogTags += `<meta property="og:image" content="/f/${joinedPath}" />
                        <meta property="og:image:type" content="${mimeType}" />
                        <meta property="og:image:width" content="${width}" />
@@ -120,7 +120,7 @@ fastify.get('/s/:date/:filename', async (request, reply) => {
                        <meta property="og:type" content="website" />
                        `
         } else if (mimeType.startsWith('video/')) {
-            fileContent = `<video controls width="${width}" height="${height}><source src="/f/${joinedPath}" type="${mimeType}"></video>`
+            fileContent = `<video controls width="${width}" height="${height}"><source src="/f/${joinedPath}" type="${mimeType}"></video>`
             ogTags += `<meta property="og:video" content="/f/${joinedPath}" />
                        <meta property="og:video:type" content="${mimeType}" />
                        <meta property="og:video:width" content="${width}" />
